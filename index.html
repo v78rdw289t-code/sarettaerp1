@@ -652,7 +652,7 @@ html,body{height:100%;background:var(--bg3);font-family:'Poppins',-apple-system,
 
 <!-- MODAL ADICIONAR ITEM OS (estoque ou avulso) -->
 <div class="mbg" id="m-item-os"><div class="modal">
-  <div class="mh"><span class="mt2">Adicionar Item à OS</span><button class="bx" onclick="closeModal('item-os')"><i class="ti ti-x"></i></button></div>
+  <div class="mh"><span class="mt2" id="mios-title">Adicionar Item à OS</span><button class="bx" onclick="closeModal('item-os')"><i class="ti ti-x"></i></button></div>
   <div style="background:var(--bg2);border-radius:var(--rad);padding:9px 12px;font-size:12px;color:var(--tx2);margin-bottom:10px" id="item-os-osinfo">—</div>
   <div class="fld">
     <label>Item do estoque</label>
@@ -671,7 +671,8 @@ html,body{height:100%;background:var(--bg3);font-family:'Poppins',-apple-system,
   <div id="mios-addestoque-wrap" style="display:none;margin-bottom:10px">
     <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="mios-addest" style="width:18px;height:18px"> Adicionar ao estoque da empresa</label>
   </div>
-  <button class="btn-p" onclick="salvarItemOS()">Adicionar à OS</button>
+  <button class="btn-p" id="btn-salvar-item-os" onclick="salvarItemOS()">Adicionar à OS</button>
+  <button class="btn-danger" id="btn-excluir-item-os" style="display:none;margin-top:6px" onclick="excluirItemOSModal()">Excluir este item</button>
 </div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -1009,14 +1010,18 @@ function showOSResumo(osId){
 
   // Lista de itens da OS
   if($('mos-itens-list')) $('mos-itens-list').innerHTML = itens.length ? itens.map(item=>`
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:.5px solid var(--bd)">
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:.5px solid var(--bd)">
       <div style="flex:1;min-width:0">
-        <div style="font-size:12px;color:var(--tx);font-weight:500">${escapeHtml(item.desc)}</div>
-        <div style="font-size:11px;color:var(--tx2)">${Math.abs(+item.qtd||1)} ${item.un} · custo ${R(Math.abs(+item.custo||0))}/un${Math.abs(+item.cobrar||0)>0?` · cobrar ${R(Math.abs(+item.cobrar||0))}/un`:''}</div>
+        <div style="font-size:12px;color:var(--tx);font-weight:600">${escapeHtml(item.desc)}</div>
+        <div style="font-size:11px;color:var(--tx2);margin-top:2px">${Math.abs(+item.qtd||1)} ${item.un||'un'} · custo ${R(Math.abs(+item.custo||0))}/un${Math.abs(+item.cobrar||0)>0?` · cobrar ${R(Math.abs(+item.cobrar||0))}/un`:''}</div>
       </div>
-      <div style="text-align:right;flex-shrink:0;margin-left:8px">
+      <div style="text-align:right;flex-shrink:0">
         <div style="font-size:12px;font-weight:700;color:var(--r)">-${R(Math.abs(+item.custo||0)*Math.abs(+item.qtd||1))}</div>
         ${Math.abs(+item.cobrar||0)>0?`<div style="font-size:11px;color:var(--gt)">+${R(Math.abs(+item.cobrar||0)*Math.abs(+item.qtd||1))}</div>`:''}
+      </div>
+      <div style="display:flex;gap:4px;flex-shrink:0">
+        <button onclick="editarItemOS(${item.id})" style="background:var(--bb);border:none;border-radius:6px;padding:6px;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Editar"><i class="ti ti-pencil" style="font-size:14px;color:var(--bt)"></i></button>
+        <button onclick="excluirItemOS(${item.id})" style="background:var(--rb);border:none;border-radius:6px;padding:6px;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Excluir"><i class="ti ti-trash" style="font-size:14px;color:var(--rt)"></i></button>
       </div>
     </div>`).join('') : '<div style="font-size:12px;color:var(--tx2);padding:8px 0">Nenhum item adicionado</div>';
   $('mos-resumo').style.display = 'block';
@@ -3182,11 +3187,17 @@ function renderEstoque(){
 
 // ──────────── ITEM OS (com estoque) ────────────
 let _itemOsId = null;
+let _editingItemOsId = null;
+
 function abrirItemOS(){
   if(!editingOsId) return;
   _itemOsId = editingOsId;
+  _editingItemOsId = null;
   const os = DB.os.find(x=>x.id===editingOsId);
   $('item-os-osinfo').textContent = os ? `OS #${pad(os.id)} — ${os.cli}` : '';
+  $('mios-title').textContent = 'Adicionar Item à OS';
+  $('btn-salvar-item-os').textContent = 'Adicionar à OS';
+  $('btn-excluir-item-os').style.display = 'none';
   // preenche select de estoque
   const sel = $('mios-est');
   sel.innerHTML = '<option value="">— Selecionar do estoque —</option>' +
@@ -3195,6 +3206,7 @@ function abrirItemOS(){
     sel.innerHTML += '<optgroup label="— Estoque zerado —">' +
       DB.estoque.filter(e=>e.qtd<=0).map(e=>`<option value="${e.id}" style="color:var(--r)">${escapeHtml(e.nome)} (zerado)</option>`).join('') + '</optgroup>';
   }
+  $('mios-est').value = '';
   $('mios-est-info').style.display = 'none';
   $('mios-desc').value = '';
   $('mios-qtd').value = '1';
@@ -3204,6 +3216,32 @@ function abrirItemOS(){
   $('mios-addest').checked = false;
   $('m-item-os').classList.add('on');
 }
+
+function editarItemOS(itemId){
+  const item = DB.osItens.find(i=>i.id===itemId);
+  if(!item) return;
+  _itemOsId = item.os;
+  _editingItemOsId = itemId;
+  $('mios-title').textContent = 'Editar Item';
+  $('btn-salvar-item-os').textContent = 'Salvar alterações';
+  $('btn-excluir-item-os').style.display = 'block';
+  const os = DB.os.find(x=>x.id===item.os);
+  $('item-os-osinfo').textContent = os ? `OS #${pad(os.id)} — ${os.cli}` : '';
+  // Preenche select de estoque
+  const sel = $('mios-est');
+  sel.innerHTML = '<option value="">— Selecionar do estoque —</option>' +
+    DB.estoque.filter(e=>e.qtd>0||e.id===item.estId).map(e=>`<option value="${e.id}">${escapeHtml(e.nome)} (${e.qtd} ${e.un} · ${R(e.custo)}/un)</option>`).join('');
+  sel.value = item.estId || '';
+  $('mios-est-info').style.display = 'none';
+  $('mios-desc').value = item.desc || '';
+  $('mios-qtd').value = item.qtd || 1;
+  $('mios-custo').value = item.custo || '';
+  $('mios-cobrar').value = item.cobrar || '';
+  $('mios-addestoque-wrap').style.display = 'none';
+  $('mios-addest').checked = false;
+  $('m-item-os').classList.add('on');
+}
+
 function preencherItemEstoque(){
   const id = parseInt($('mios-est').value);
   if(!id){ 
@@ -3217,50 +3255,110 @@ function preencherItemEstoque(){
   $('mios-desc').value = e.nome;
   $('mios-qtd').value = 1;
   $('mios-custo').value = e.custo;
-  // sugerir preço de venda: custo + 30% por padrão
   const sugerido = Math.ceil(e.custo * 1.3 / 5) * 5;
   $('mios-cobrar').value = sugerido;
   $('mios-est-info').innerHTML = `<b>Custo que pagou:</b> ${R(e.custo)}/${e.un} · <b>Estoque:</b> ${e.qtd} ${e.un} · <b>Local:</b> ${e.local||'—'}<br><b>Sugestão de venda (+30%):</b> ${R(sugerido)}`;
   $('mios-est-info').style.display = 'block';
   $('mios-addestoque-wrap').style.display = 'none';
 }
+
 async function salvarItemOS(){
   const desc = $('mios-desc').value.trim();
   if(!desc){ alert('Informe o item'); return; }
-  const qtd = parseFloat($('mios-qtd').value)||1;
-  const custo = parseFloat($('mios-custo').value)||0;
+  const qtd    = parseFloat($('mios-qtd').value)||1;
+  const custo  = parseFloat($('mios-custo').value)||0;
   const cobrar = parseFloat($('mios-cobrar').value)||0;
-  const estId = parseInt($('mios-est').value)||0;
+  const estId  = parseInt($('mios-est').value)||0;
 
-  // Salva item vinculado à OS (sem gerar lançamento financeiro)
-  const itemObj = {
-    id: nextOsItem,
-    os: _itemOsId,
-    desc, qtd,
-    un: estId ? (DB.estoque.find(e=>e.id===estId)?.un||'un') : 'un',
-    custo, cobrar,
-    estId, data: TODAY
-  };
-  DB.osItens.push(itemObj); nextOsItem++;
-  await apiSave('addOsItem', itemObj);
+  if(_editingItemOsId){
+    // ── MODO EDIÇÃO ──
+    const idx = DB.osItens.findIndex(i=>i.id===_editingItemOsId);
+    if(idx<0){ alert('Item não encontrado'); return; }
+    const itemAntigo = DB.osItens[idx];
 
-  // Desconta do estoque se veio do estoque
-  if(estId){
-    const idx = DB.estoque.findIndex(e=>e.id===estId);
-    if(idx>=0){
-      DB.estoque[idx].qtd = Math.max(0, DB.estoque[idx].qtd - qtd);
-      await apiSave('updateEstoque', DB.estoque[idx]);
+    // Se tinha estoque vinculado antes, devolve a qtd antiga
+    if(itemAntigo.estId){
+      const ei = DB.estoque.findIndex(e=>e.id===itemAntigo.estId);
+      if(ei>=0){
+        DB.estoque[ei].qtd += Math.abs(+itemAntigo.qtd||1);
+        await apiSave('updateEstoque', DB.estoque[ei]);
+      }
+    }
+
+    // Atualiza o item
+    const itemAtualizado = { ...itemAntigo, desc, qtd, custo, cobrar, estId };
+    DB.osItens[idx] = itemAtualizado;
+    await apiSave('updateOsItem', itemAtualizado);
+
+    // Desconta do estoque novo se necessário
+    if(estId){
+      const ei = DB.estoque.findIndex(e=>e.id===estId);
+      if(ei>=0){
+        DB.estoque[ei].qtd = Math.max(0, DB.estoque[ei].qtd - qtd);
+        await apiSave('updateEstoque', DB.estoque[ei]);
+      }
+    }
+
+  } else {
+    // ── MODO CRIAÇÃO ──
+    const itemObj = {
+      id: nextOsItem,
+      os: _itemOsId,
+      desc, qtd,
+      un: estId ? (DB.estoque.find(e=>e.id===estId)?.un||'un') : 'un',
+      custo, cobrar,
+      estId, data: TODAY
+    };
+    DB.osItens.push(itemObj); nextOsItem++;
+    await apiSave('addOsItem', itemObj);
+
+    // Desconta do estoque
+    if(estId){
+      const idx = DB.estoque.findIndex(e=>e.id===estId);
+      if(idx>=0){
+        DB.estoque[idx].qtd = Math.max(0, DB.estoque[idx].qtd - qtd);
+        await apiSave('updateEstoque', DB.estoque[idx]);
+      }
+    }
+    // Adicionar ao estoque se marcado
+    if(!estId && $('mios-addest').checked && desc){
+      const novoEst = { id:nextEstoque, nome:desc, qtd:0, un:'un', custo:custo, local:'', data:TODAY, obs:'' };
+      DB.estoque.push(novoEst); nextEstoque++;
+      await apiSave('addEstoque', novoEst);
     }
   }
-  // Se não está no estoque e marcou pra adicionar, cria no estoque
-  if(!estId && $('mios-addest').checked && desc){
-    const novoEst = { id:nextEstoque, nome:desc, qtd:0, un:'un', custo:custo, local:'', data:TODAY, obs:'' };
-    DB.estoque.push(novoEst); nextEstoque++;
-    await apiSave('addEstoque', novoEst);
-  }
+
   saveCache();
   closeModal('item-os');
-  showSuccess();
+  showSuccess(_editingItemOsId ? 'Item atualizado!' : undefined);
+  _editingItemOsId = null;
+  if(editingOsId) showOSResumo(editingOsId);
+  if($('pg-os').classList.contains('on')) renderOS();
+}
+
+async function excluirItemOSModal(){
+  if(!_editingItemOsId) return;
+  if(!confirm('Excluir este item da OS?')) return;
+  await excluirItemOS(_editingItemOsId);
+  closeModal('item-os');
+}
+
+async function excluirItemOS(itemId){
+  const idx = DB.osItens.findIndex(i=>i.id===itemId);
+  if(idx<0) return;
+  const item = DB.osItens[idx];
+  // Devolve ao estoque se veio de lá
+  if(item.estId){
+    const ei = DB.estoque.findIndex(e=>e.id===item.estId);
+    if(ei>=0){
+      DB.estoque[ei].qtd = (DB.estoque[ei].qtd||0) + Math.abs(+item.qtd||1);
+      await apiSave('updateEstoque', DB.estoque[ei]);
+    }
+  }
+  DB.osItens.splice(idx, 1);
+  await apiSave('deleteOsItem', { id: itemId });
+  saveCache();
+  showSuccess('Item excluído.');
   if(editingOsId) showOSResumo(editingOsId);
   if($('pg-os').classList.contains('on')) renderOS();
 }
