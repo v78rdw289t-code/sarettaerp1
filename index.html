@@ -438,33 +438,63 @@ html,body{height:100%;background:var(--bg3);font-family:'Poppins',-apple-system,
     <select id="mos-tipo"><option>Elétrico</option><option>Hidráulico</option><option>Soldagem</option><option>Mecânico</option><option>Manutenção rural</option><option>Adequação de propriedade</option><option>Adaptação</option><option>Outro</option></select>
   </div>
   <div class="fld"><label>Descrição do serviço</label><textarea id="mos-desc" placeholder="Descreva o que será feito..."></textarea></div>
-  <div class="r2">
-    <div class="fld"><label>Valor (R$)</label><input id="mos-val" type="number" placeholder="0" min="0" inputmode="decimal"></div>
-    <div class="fld"><label>Status</label><select id="mos-status"><option value="open">Em aberto</option><option value="progress">Em andamento</option><option value="done">Concluído</option></select></div>
+  <!-- Modo OS: só visível ao criar -->
+  <div id="mos-modo-wrap" class="fld" style="display:none">
+    <label>Modo da OS</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button type="button" id="mos-modo-btn-simples" onclick="setModoOS('simples')" style="padding:10px 6px;border-radius:var(--rad);border:2px solid var(--brand);background:var(--bb);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--brand);display:flex;flex-direction:column;align-items:center;gap:3px"><i class="ti ti-file-invoice" style="font-size:16px"></i>Simples</button>
+      <button type="button" id="mos-modo-btn-diario" onclick="setModoOS('diario')" style="padding:10px 6px;border-radius:var(--rad);border:2px solid var(--bd2);background:var(--bg2);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--tx2);display:flex;flex-direction:column;align-items:center;gap:3px"><i class="ti ti-calendar-week" style="font-size:16px"></i>Diário</button>
+    </div>
   </div>
-  <div class="sdiv" style="margin-top:14px">Datas</div>
-  <div class="r3">
+  <!-- Valores simples -->
+  <div id="mos-vals-simples">
+    <div class="r2">
+      <div class="fld"><label>Mão de obra (R$)</label><input id="mos-maoobra" type="number" placeholder="0" min="0" inputmode="decimal" oninput="atualizarTotalOS()"></div>
+      <div class="fld"><label>Valor total acordado (R$)</label><input id="mos-val" type="number" placeholder="auto" min="0" inputmode="decimal"></div>
+    </div>
+    <div id="mos-total-calc" style="display:none;font-size:11px;color:var(--tx2);margin:-4px 0 10px;padding:6px 10px;background:var(--bg2);border-radius:var(--rad)"></div>
+  </div>
+  <div class="r2">
+    <div class="fld"><label>Status</label><select id="mos-status"><option value="open">Em aberto</option><option value="progress">Em andamento</option><option value="done">Concluído</option></select></div>
     <div class="fld"><label>Início previsto</label><input id="mos-dataPrev" type="date"></div>
+  </div>
+  <!-- Datas: simples -->
+  <div id="mos-datas-simples" class="r2">
     <div class="fld"><label>Início real</label><input id="mos-dataIni" type="date"></div>
     <div class="fld"><label>Fim real</label><input id="mos-dataFim" type="date"></div>
   </div>
   <div class="fld"><label>Vencimento do pagamento</label><input id="mos-data" type="date"></div>
   <div id="mos-resumo" style="display:none">
-    <div class="sdiv" style="margin-top:14px">Resumo financeiro desta OS</div>
+    <div class="sdiv" style="margin-top:14px">Resumo financeiro</div>
     <div id="mos-resumo-content" style="background:var(--bg2);border-radius:var(--rad);padding:10px 12px;font-size:12px;color:var(--tx2)"></div>
-    <div style="margin-top:14px;padding:12px;background:var(--bg2);border-radius:var(--radl);border:1.5px dashed var(--accent)">
+    <!-- Precificar (só no modo simples) -->
+    <div id="mos-precif-wrap" style="margin-top:14px;padding:12px;background:var(--bg2);border-radius:var(--radl);border:1.5px dashed var(--accent)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <span style="font-size:11px;font-weight:700;color:var(--brand);text-transform:uppercase;letter-spacing:.05em">Precificar esta OS</span>
         <button class="btn-a" onclick="abrirCalculadora(editingOsId)" style="font-size:11px;padding:5px 10px;gap:4px"><i class="ti ti-calculator" style="font-size:13px"></i>Calcular preço</button>
       </div>
       <div id="calc-sugestao" style="display:none;font-size:12px;color:var(--tx2)"></div>
     </div>
-    <div class="sh" style="margin-top:12px"><span class="stl">Materiais / itens usados</span><button class="btn-a" onclick="abrirItemOS()"><i class="ti ti-plus"></i>Item</button></div>
+    <div class="sh" style="margin-top:12px"><span class="stl">Materiais / itens</span><button class="btn-a" onclick="abrirItemOS()"><i class="ti ti-plus"></i>Item</button></div>
     <div id="mos-itens-list"></div>
+    <!-- Diário: lista de dias -->
+    <div id="mos-diario-wrap" style="display:none">
+      <div class="sh" style="margin-top:4px"><span class="stl">Registro por dia</span><button class="btn-a" onclick="openDiarioModal(editingOsId,null)"><i class="ti ti-plus"></i>Novo dia</button></div>
+      <div id="mos-diario-list"></div>
+      <!-- Acerto final -->
+      <div style="background:var(--bg2);border-radius:var(--radl);padding:12px;margin-top:10px;border:1.5px solid var(--accent)">
+        <div class="stl" style="margin-bottom:10px">Acerto final</div>
+        <div class="r2" style="margin-bottom:8px">
+          <div class="fld"><label>Início (auto)</label><input id="mos-acerto-ini" type="date" readonly style="opacity:.7"></div>
+          <div class="fld"><label>Fim (auto)</label><input id="mos-acerto-fim" type="date" readonly style="opacity:.7"></div>
+        </div>
+        <div id="mos-acerto-content" style="font-size:12px;color:var(--tx2)"></div>
+      </div>
+    </div>
   </div>
   <button class="btn-p" id="btn-save-os" onclick="salvarOS()">Salvar OS</button>
   <button class="btn-danger" id="btn-del-os" style="display:none" onclick="deleteOS()">Excluir OS</button>
-  <button id="btn-export-os" style="display:none;width:100%;background:none;border:1.5px solid var(--brand);color:var(--brand);border-radius:var(--rad);padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;display:none;align-items:center;justify-content:center;gap:6px" onclick="exportarOSPDF(editingOsId)">
+  <button id="btn-export-os" style="display:none;width:100%;background:none;border:1.5px solid var(--brand);color:var(--brand);border-radius:var(--rad);padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;align-items:center;justify-content:center;gap:6px" onclick="exportarOSPDF(editingOsId)">
     <i class="ti ti-file-type-pdf" style="font-size:16px"></i> Exportar OS em PDF
   </button>
 </div></div>
@@ -712,10 +742,14 @@ const OSLBL = {open:'Em aberto', progress:'Em andamento', done:'Concluído'};
 const OSBDG = {open:'b-ab', progress:'b-and', done:'b-ok'};
 
 let visivel = false;
-let DB = { os:[], lancamentos:{}, clientes:[], horas:[], compras:[], estoque:[], categorias:[], osItens:[] };
-let nextOS=1, nextLanc=1, nextCli=1, nextHora=1, nextCompra=1, nextEstoque=1, nextCat=1, nextOsItem=1;
+let DB = { os:[], lancamentos:{}, clientes:[], horas:[], compras:[], estoque:[], categorias:[], osItens:[], osDiario:[] };
+let nextOS=1, nextLanc=1, nextCli=1, nextHora=1, nextCompra=1, nextEstoque=1, nextCat=1, nextOsItem=1, nextOsDiario=1;
 let osFiltro='todas', lancFiltro='todos', finTab='caixa', fichaTab='info', osTab='os', catTab='desp';
 let editingOsId=null, editingLancId=null, editingCliId=null, editingHoraId=null, editingCompraId=null, editingEstoqueId=null, editingCatId=null;
+let editingDiaId = null;
+let _modoOS = 'simples';
+let _itemDiaId = 0;
+let diarState = { fatores: [], osId: null };
 let fichaClienteId=null;
 let isSaving=false;
 let chartHome=null, chartSazonal=null;
@@ -728,8 +762,8 @@ function showError(msg){const b=$('error-bar');if(msg)b.textContent=msg;b.classL
 function showSuccess(msg){const b=$('success-bar');if(msg)b.textContent=msg;b.classList.add('show');setTimeout(()=>{b.classList.remove('show');b.textContent='✓ Salvo!'},2500)}
 
 // ── cache ──
-function saveCache(){try{localStorage.setItem(CACHE_KEY,JSON.stringify({DB,nextOS,nextLanc,nextCli,nextHora,nextCompra,nextEstoque,nextCat,nextOsItem}))}catch(e){}}
-function loadCache(){try{const d=localStorage.getItem(CACHE_KEY);if(d){const p=JSON.parse(d);DB=p.DB;DB.compras=DB.compras||[];DB.estoque=DB.estoque||[];DB.categorias=DB.categorias||[];DB.osItens=DB.osItens||[];nextOS=p.nextOS||1;nextLanc=p.nextLanc||1;nextCli=p.nextCli||1;nextHora=p.nextHora||1;nextCompra=p.nextCompra||1;nextEstoque=p.nextEstoque||1;nextCat=p.nextCat||1;nextOsItem=p.nextOsItem||1;return true}}catch(e){}return false}
+function saveCache(){try{localStorage.setItem(CACHE_KEY,JSON.stringify({DB,nextOS,nextLanc,nextCli,nextHora,nextCompra,nextEstoque,nextCat,nextOsItem,nextOsDiario}))}catch(e){}}
+function loadCache(){try{const d=localStorage.getItem(CACHE_KEY);if(d){const p=JSON.parse(d);DB=p.DB;DB.compras=DB.compras||[];DB.estoque=DB.estoque||[];DB.categorias=DB.categorias||[];DB.osItens=DB.osItens||[];DB.osDiario=DB.osDiario||[];nextOS=p.nextOS||1;nextLanc=p.nextLanc||1;nextCli=p.nextCli||1;nextHora=p.nextHora||1;nextCompra=p.nextCompra||1;nextEstoque=p.nextEstoque||1;nextCat=p.nextCat||1;nextOsItem=p.nextOsItem||1;nextOsDiario=p.nextOsDiario||1;return true}}catch(e){}return false}
 
 // ── API: GET para leitura, POST para escrita (mais confiável) ──
 const configured = () => APPS_SCRIPT_URL && !APPS_SCRIPT_URL.includes('COLE_');
@@ -774,7 +808,8 @@ async function fetchData(){
     DB.os = (data.os||[]).map(r=>({
       id:+r.id, cli:String(r.cli||''), tipo:String(r.tipo||'Outro'), desc:String(r.desc||''),
       val:+r.val||0, data:normDate(r.data), status:String(r.status||'open'),
-      dataPrev:normDate(r.dataPrev), dataIni:normDate(r.dataIni), dataFim:normDate(r.dataFim)
+      dataPrev:normDate(r.dataPrev), dataIni:normDate(r.dataIni), dataFim:normDate(r.dataFim),
+      valMaoObra:+r.valMaoObra||0, modoDiario:r.modoDiario==='true'||r.modoDiario===true||false
     }));
     DB.lancamentos = {};
     (data.lancamentos||[]).forEach(r=>{
@@ -814,7 +849,7 @@ async function fetchData(){
       id:+r.id, os:+r.os||0, desc:String(r.desc||''),
       qtd:+r.qtd||1, un:String(r.un||'un'),
       custo:+r.custo||0, cobrar:+r.cobrar||0,
-      estId:+r.estId||0, data:normDate(r.data)
+      estId:+r.estId||0, data:normDate(r.data), diaId:+r.diaId||0
     }));
     const allL = Object.values(DB.lancamentos).flat();
     if(DB.os.length) nextOS = Math.max(...DB.os.map(o=>o.id)) + 1;
@@ -825,6 +860,14 @@ async function fetchData(){
     if(DB.estoque.length) nextEstoque = Math.max(...DB.estoque.map(e=>e.id)) + 1;
     if(DB.categorias.length) nextCat = Math.max(...DB.categorias.map(c=>c.id)) + 1;
     if(DB.osItens.length) nextOsItem = Math.max(...DB.osItens.map(i=>i.id)) + 1;
+    DB.osDiario = (data.osDiario||[]).map(r=>({
+      id:+r.id, os:+r.os||0, data:normDate(r.data),
+      horas:+r.horas||0, horaBase:+r.horaBase||155,
+      fatores:Array.isArray(r.fatores)?r.fatores:(r.fatores?JSON.parse(r.fatores):[]),
+      totalPct:+r.totalPct||0, horaFinal:+r.horaFinal||0,
+      valMaoObra:+r.valMaoObra||0, obs:String(r.obs||'')
+    }));
+    if(DB.osDiario.length) nextOsDiario = Math.max(...DB.osDiario.map(d=>d.id)) + 1;
     saveCache();
     renderAll();
   }catch(e){
@@ -957,25 +1000,31 @@ function openOSModal(id){
     const o = DB.os.find(x=>x.id===id);
     if(!o) return;
     $('mos-cli').value = o.cli;
-    // Sincroniza o select: tenta achar o cliente pelo nome
     const optMatch = [...$('mos-cli-sel').options].find(opt=>opt.value===o.cli);
     $('mos-cli-sel').value = optMatch ? o.cli : '';
     $('mos-tipo').value = o.tipo || 'Elétrico';
     $('mos-desc').value = o.desc || '';
+    $('mos-maoobra').value = o.valMaoObra || '';
     $('mos-val').value = o.val || '';
     $('mos-data').value = o.data || '';
     $('mos-dataPrev').value = o.dataPrev || '';
     $('mos-dataIni').value = o.dataIni || '';
     $('mos-dataFim').value = o.dataFim || '';
     $('mos-status').value = o.status || 'open';
+    _modoOS = o.modoDiario ? 'diario' : 'simples';
+    $('mos-modo-wrap').style.display = 'none'; // can't change mode after creation
     showOSResumo(id);
   } else {
-    ['mos-cli','mos-desc','mos-val','mos-dataPrev','mos-dataIni','mos-dataFim'].forEach(i=>$(i).value='');
+    ['mos-cli','mos-desc','mos-maoobra','mos-val','mos-dataPrev','mos-dataIni','mos-dataFim'].forEach(i=>$(i).value='');
     $('mos-data').value = getMes() + '-15';
     $('mos-tipo').value = 'Elétrico';
     $('mos-status').value = 'open';
     $('mos-resumo').style.display = 'none';
+    _modoOS = 'simples';
+    $('mos-modo-wrap').style.display = 'block';
+    setModoOS('simples');
   }
+  atualizarTotalOS();
   $('m-os').classList.add('on');
 }
 
@@ -995,12 +1044,20 @@ function showOSResumo(osId){
   const os = DB.os.find(o=>o.id===osId);
   const valOS = os ? os.val : 0;
 
+  const cobrarMat = itens.reduce((a,b)=>a+(Math.abs(+b.cobrar||0)*Math.abs(+b.qtd||1)),0);
+  const valMaoObra = os && os.valMaoObra ? os.valMaoObra : (valOS - cobrarMat > 0 && cobrarMat > 0 ? valOS - cobrarMat : 0);
   let html = '';
-  html += `<div style="display:flex;justify-content:space-between;padding:3px 0"><span>Valor da OS</span><b>${R(valOS)}</b></div>`;
+  if(cobrarMat > 0 || valMaoObra > 0){
+    if(valMaoObra > 0) html += `<div style="display:flex;justify-content:space-between;padding:3px 0"><span>Mão de obra</span><b>${R(valMaoObra)}</b></div>`;
+    if(cobrarMat > 0) html += `<div style="display:flex;justify-content:space-between;padding:3px 0"><span>Materiais (a cobrar)</span><b>${R(cobrarMat)}</b></div>`;
+    html += `<div style="display:flex;justify-content:space-between;padding:3px 0;border-top:.5px solid var(--bd);margin-top:4px;padding-top:6px"><span><b>Valor total</b></span><b>${R(valOS)}</b></div>`;
+  } else {
+    html += `<div style="display:flex;justify-content:space-between;padding:3px 0"><span>Valor da OS</span><b>${R(valOS)}</b></div>`;
+  }
   html += `<div style="display:flex;justify-content:space-between;padding:3px 0"><span>Recebido</span><b class="pos">${R(rec)}</b></div>`;
   if(recPend>0) html += `<div style="display:flex;justify-content:space-between;padding:3px 0"><span>Pendente receber</span><b class="warn">${R(recPend)}</b></div>`;
   if(desp>0) html += `<div style="display:flex;justify-content:space-between;padding:3px 0"><span>Custo materiais</span><b class="neg">${R(desp)}</b></div>`;
-  if(cobrar>0) html += `<div style="display:flex;justify-content:space-between;padding:3px 0"><span>A cobrar (materiais)</span><b class="warn">${R(cobrar)}</b></div>`;
+  if(cobrar>0 && !(cobrarMat > 0 || valMaoObra > 0)) html += `<div style="display:flex;justify-content:space-between;padding:3px 0"><span>A cobrar (materiais)</span><b class="warn">${R(cobrar)}</b></div>`;
   if(hTot>0) html += `<div style="display:flex;justify-content:space-between;padding:3px 0"><span>Horas trabalhadas</span><b>${hTot.toFixed(1)}h (${pessoaH.toFixed(1)}h·pessoa)</b></div>`;
   if(desp>0||rec>0){
     const lucro = rec - desp;
@@ -1025,6 +1082,15 @@ function showOSResumo(osId){
       </div>
     </div>`).join('') : '<div style="font-size:12px;color:var(--tx2);padding:8px 0">Nenhum item adicionado</div>';
   $('mos-resumo').style.display = 'block';
+
+  // Show diary entries and acerto for diário mode
+  const isDiario = os && os.modoDiario;
+  if($('mos-diario-wrap')) $('mos-diario-wrap').style.display = isDiario ? 'block' : 'none';
+  if($('mos-precif-wrap')) $('mos-precif-wrap').style.display = !isDiario ? 'block' : 'none';
+  if(isDiario) renderDiarioOS(osId);
+  else {
+    if($('mos-datas-simples')) $('mos-datas-simples').style.display = 'grid';
+  }
 }
 
 function filtrarClientesOS(){
@@ -1049,6 +1115,44 @@ function prefillCli(){
   if(v) $('mos-cli').value = v;
 }
 
+function setModoOS(modo){
+  _modoOS = modo;
+  const btnS = $('mos-modo-btn-simples');
+  const btnD = $('mos-modo-btn-diario');
+  if(btnS && btnD){
+    btnS.style.border = modo==='simples'?'2px solid var(--brand)':'2px solid var(--bd2)';
+    btnS.style.background = modo==='simples'?'var(--bb)':'var(--bg2)';
+    btnS.style.color = modo==='simples'?'var(--brand)':'var(--tx2)';
+    btnD.style.border = modo==='diario'?'2px solid var(--accent-d)':'2px solid var(--bd2)';
+    btnD.style.background = modo==='diario'?'var(--ab)':'var(--bg2)';
+    btnD.style.color = modo==='diario'?'var(--at)':'var(--tx2)';
+  }
+  $('mos-vals-simples').style.display = modo==='simples'?'block':'none';
+  $('mos-datas-simples').style.display = modo==='simples'?'grid':'none';
+}
+
+function atualizarTotalOS(){
+  const maoObra = parseFloat($('mos-maoobra').value)||0;
+  const itens = editingOsId ? DB.osItens.filter(i=>i.os===editingOsId) : [];
+  const cobrarMat = itens.reduce((a,b)=>a+(Math.abs(+b.cobrar||0)*Math.abs(+b.qtd||1)),0);
+  const totalCalc = maoObra + cobrarMat;
+  const div = $('mos-total-calc');
+  if(div){
+    if(maoObra > 0 || cobrarMat > 0){
+      let txt = `Calculado: `;
+      if(maoObra > 0) txt += `mão de obra ${R(maoObra)}`;
+      if(cobrarMat > 0) txt += (maoObra>0?' + ':'')+`material ${R(cobrarMat)}`;
+      txt += ` = <b>${R(totalCalc)}</b>`;
+      div.innerHTML = txt;
+      div.style.display = 'block';
+      // Only auto-fill if total field is empty
+      if(!$('mos-val').value) $('mos-val').value = totalCalc.toFixed(2);
+    } else {
+      div.style.display = 'none';
+    }
+  }
+}
+
 async function salvarOS(){
   const cli = $('mos-cli').value.trim();
   if(!cli){ alert('Informe o cliente'); return; }
@@ -1059,11 +1163,13 @@ async function salvarOS(){
     id: editingOsId || nextOS,
     cli, tipo: $('mos-tipo').value, desc: $('mos-desc').value,
     val: parseFloat($('mos-val').value)||0,
+    valMaoObra: parseFloat($('mos-maoobra').value)||0,
+    modoDiario: _modoOS === 'diario',
     data: $('mos-data').value || getMes()+'-15',
     status: $('mos-status').value,
     dataPrev: $('mos-dataPrev').value,
-    dataIni: $('mos-dataIni').value,
-    dataFim: $('mos-dataFim').value
+    dataIni: _modoOS==='diario' ? ($('mos-acerto-ini').value||$('mos-dataIni').value) : $('mos-dataIni').value,
+    dataFim: _modoOS==='diario' ? ($('mos-acerto-fim').value||$('mos-dataFim').value) : $('mos-dataFim').value
   };
   let ok;
   if(editingOsId){
@@ -1729,9 +1835,19 @@ function renderOS(){
         ${o.data?`<span class="pill"><i class="ti ti-cash"></i>Venc: ${formatBR(o.data)}</span>`:''}
       </div>
       <div style="margin-top:8px;padding-top:8px;border-top:.5px solid var(--bd)">
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tx2);margin-bottom:5px">
-          <span>Valor da OS</span><span style="font-weight:700;color:var(--tx)">${visivel?R(o.val):MASK}</span>
-        </div>
+        ${(()=>{
+          const cobrarMat2 = DB.osItens.filter(i=>i.os===o.id).reduce((a,b)=>a+(Math.abs(+b.cobrar||0)*Math.abs(+b.qtd||1)),0);
+          const maoObra2 = o.valMaoObra || (o.val - cobrarMat2 > 0 && cobrarMat2 > 0 ? o.val - cobrarMat2 : 0);
+          if(cobrarMat2 > 0 || maoObra2 > 0){
+            return `<div style="font-size:11px;color:var(--tx2);margin-bottom:4px">
+              ${maoObra2>0?`<div style="display:flex;justify-content:space-between"><span>Mão de obra</span><b>${visivel?R(maoObra2):MASK}</b></div>`:''}
+              ${cobrarMat2>0?`<div style="display:flex;justify-content:space-between"><span>Material</span><b>${visivel?R(cobrarMat2):MASK}</b></div>`:''}
+              <div style="display:flex;justify-content:space-between;border-top:.5px solid var(--bd);margin-top:3px;padding-top:3px"><span><b>Total</b></span><b style="color:var(--tx)">${visivel?R(o.val):MASK}</b></div>
+            </div>`;
+          } else {
+            return `<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tx2);margin-bottom:5px"><span>Valor da OS</span><span style="font-weight:700;color:var(--tx)">${visivel?R(o.val):MASK}</span></div>`;
+          }
+        })()}
         <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tx2);margin-bottom:4px">
           <span>✅ Recebido <b class="pos">${visivel?R(recOS):MASK}</b>${recPendOS>0?` · ⏳ Pendente <b class="warn">${visivel?R(recPendOS):MASK}</b>`:''}</span>
           <span class="${pctRec>=100?'pos':pctRec>0?'warn':'neg'}">${visivel?pctRec:'••'}%</span>
@@ -3307,7 +3423,7 @@ async function salvarItemOS(){
       desc, qtd,
       un: estId ? (DB.estoque.find(e=>e.id===estId)?.un||'un') : 'un',
       custo, cobrar,
-      estId, data: TODAY
+      estId, data: TODAY, diaId: _itemDiaId || 0
     };
     DB.osItens.push(itemObj); nextOsItem++;
     await apiSave('addOsItem', itemObj);
@@ -3332,7 +3448,12 @@ async function salvarItemOS(){
   closeModal('item-os');
   showSuccess(_editingItemOsId ? 'Item atualizado!' : undefined);
   _editingItemOsId = null;
-  if(editingOsId) showOSResumo(editingOsId);
+  if(_itemDiaId > 0){
+    renderDiarioItens(_itemDiaId);
+    _itemDiaId = 0;
+  } else if(editingOsId){
+    showOSResumo(editingOsId);
+  }
   if($('pg-os').classList.contains('on')) renderOS();
 }
 
@@ -3723,6 +3844,7 @@ function calcRecalc(){
   $('calc-linhas').innerHTML = linhas.join('');
   $('calc-total').textContent = R(total);
   calcState._total = total;
+  calcState._subtotalMao = subtotalMao;
 }
 
 function calcAtualizar(){ calcRecalc(); }
@@ -3735,12 +3857,313 @@ function calcUsarValor(){
     campo.style.background = 'var(--ab)';
     setTimeout(()=>{ campo.style.border=''; campo.style.background=''; }, 2500);
   }
+  if(calcState._subtotalMao && $('mos-maoobra')){
+    $('mos-maoobra').value = calcState._subtotalMao.toFixed(2);
+  }
   closeModal('calc');
   showSuccess('Valor sugerido aplicado \u2014 revise antes de salvar!');
 }
 
+// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 DI\u00c1RIO DE OBRA \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+function openDiarioModal(osId, diaId){
+  diarState.osId = osId || editingOsId;
+  diarState.diaId = diaId || null;
+  diarState.fatores = JSON.parse(JSON.stringify(CALC_FATORES_DEFAULT));
+  $('mdia-title').textContent = diaId ? 'Editar registro do dia' : 'Registrar dia';
+  $('btn-del-diario').style.display = diaId ? 'block' : 'none';
+  const btnItem = $('btn-add-item-dia');
+  if(btnItem) btnItem.style.display = diaId ? 'flex' : 'none';
+  if(diaId){
+    const dia = DB.osDiario.find(d=>d.id===diaId);
+    if(!dia) return;
+    $('mdia-data').value = dia.data || '';
+    $('mdia-horas').value = dia.horas || '';
+    $('mdia-hora-base').value = dia.horaBase || 155;
+    if(dia.fatores) diarState.fatores = JSON.parse(JSON.stringify(dia.fatores));
+    $('mdia-obs').value = dia.obs || '';
+    renderDiarioItens(diaId);
+  } else {
+    $('mdia-data').value = TODAY;
+    $('mdia-horas').value = '';
+    $('mdia-hora-base').value = 155;
+    $('mdia-obs').value = '';
+    if($('mdia-itens-list')) $('mdia-itens-list').innerHTML = '<div style="font-size:12px;color:var(--tx2);padding:6px 0">Salve primeiro para adicionar materiais</div>';
+  }
+  diarUpdateTipoButtons(parseFloat($('mdia-hora-base').value)||155);
+  renderDiarioFatores();
+  diarCalcRecalc();
+  $('m-diario').classList.add('on');
+}
+
+function diarSetTipo(tipo){
+  const val = tipo==='manutencao' ? HORA_MANUT : HORA_PROJ;
+  $('mdia-hora-base').value = val;
+  diarUpdateTipoButtons(val);
+  diarCalcRecalc();
+}
+
+function diarUpdateTipoButtons(val){
+  const bM = $('mdia-tipo-manu'), bP = $('mdia-tipo-proj');
+  if(!bM||!bP) return;
+  const isManu = val===HORA_MANUT;
+  const isProj = val===HORA_PROJ;
+  bM.style.border = isManu?'1.5px solid var(--brand)':'1.5px solid var(--bd2)';
+  bM.style.background = isManu?'var(--bb)':'var(--bg2)';
+  bM.style.color = isManu?'var(--brand)':'var(--tx2)';
+  bP.style.border = isProj?'1.5px solid var(--accent-d)':'1.5px solid var(--bd2)';
+  bP.style.background = isProj?'var(--ab)':'var(--bg2)';
+  bP.style.color = isProj?'var(--at)':'var(--tx2)';
+}
+
+function diarClearTipoBtns(){
+  const bM = $('mdia-tipo-manu'), bP = $('mdia-tipo-proj');
+  if(!bM||!bP) return;
+  [bM,bP].forEach(b=>{ b.style.border='1.5px solid var(--bd2)'; b.style.background='var(--bg2)'; b.style.color='var(--tx2)'; });
+}
+
+function renderDiarioFatores(){
+  const list = $('mdia-fatores-list');
+  if(!list) return;
+  list.innerHTML = diarState.fatores.map(f => `
+    <div onclick="diarToggleFator(${f.id})" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;border:1.5px solid ${f.ativo?'var(--brand)':'var(--bd)'};background:${f.ativo?'var(--bb)':'var(--bg)'}">
+      <div style="width:16px;height:16px;border-radius:4px;flex-shrink:0;background:${f.ativo?'var(--brand)':'var(--bg)'};border:2px solid ${f.ativo?'var(--brand)':'var(--bd2)'};display:flex;align-items:center;justify-content:center">
+        ${f.ativo?'<i class="ti ti-check" style="font-size:10px;color:#fff"></i>':''}
+      </div>
+      <span style="flex:1;font-size:12px;color:var(--tx)">${f.label}</span>
+      <div style="display:flex;align-items:center;gap:2px">
+        <input type="number" min="0" max="200" value="${f.pct}" onclick="event.stopPropagation()" oninput="diarUpdateFatorPct(${f.id},this.value)"
+          style="width:40px;padding:2px 4px;border:1px solid var(--bd2);border-radius:5px;font-size:12px;font-weight:700;color:var(--tx);text-align:right;background:var(--bg);font-family:inherit">
+        <span style="font-size:11px;color:var(--tx2)">%</span>
+      </div>
+    </div>`).join('');
+}
+
+function diarToggleFator(id){
+  diarState.fatores = diarState.fatores.map(f=>f.id===id?{...f,ativo:!f.ativo}:f);
+  renderDiarioFatores();
+  diarCalcRecalc();
+}
+
+function diarUpdateFatorPct(id,val){
+  diarState.fatores = diarState.fatores.map(f=>f.id===id?{...f,pct:Number(val)}:f);
+  diarCalcRecalc();
+}
+
+function diarCalcRecalc(){
+  const horaBase = parseFloat($('mdia-hora-base').value)||155;
+  const horas = parseFloat($('mdia-horas').value)||0;
+  const totalPct = diarState.fatores.filter(f=>f.ativo).reduce((a,f)=>a+f.pct,0);
+  const horaFinal = horaBase * (1 + totalPct/100);
+  const valMaoObra = horaFinal * horas;
+  const prev = $('mdia-calc-preview');
+  if(prev){
+    if(horas > 0){
+      let txt = `${horas}h \u00d7 R$${horaBase.toFixed(0)}/h`;
+      if(totalPct > 0) txt += ` \u00d7 (1 + ${totalPct}%) = <b>R$${horaFinal.toFixed(2)}/h reajustada</b>`;
+      txt += `<br>M\u00e3o de obra: <b style="font-size:14px;color:var(--brand)">${R(valMaoObra)}</b>`;
+      prev.innerHTML = txt;
+      prev.style.display = 'block';
+    } else {
+      prev.style.display = 'none';
+    }
+  }
+}
+
+function renderDiarioItens(diaId){
+  const list = $('mdia-itens-list');
+  if(!list) return;
+  const itens = diaId ? DB.osItens.filter(i=>i.diaId===diaId) : [];
+  list.innerHTML = itens.length ? itens.map(item=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid var(--bd)">
+      <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--tx)">${escapeHtml(item.desc)}</div>
+        <div style="font-size:11px;color:var(--tx2)">${Math.abs(+item.qtd||1)} ${item.un||'un'} \u00b7 custo ${R(Math.abs(+item.custo||0))}/un${Math.abs(+item.cobrar||0)>0?` \u00b7 cobrar ${R(Math.abs(+item.cobrar||0))}/un`:''}</div>
+      </div>
+      <div style="display:flex;gap:3px">
+        <button onclick="editarItemOS(${item.id})" style="background:var(--bb);border:none;border-radius:5px;padding:5px;cursor:pointer"><i class="ti ti-pencil" style="font-size:13px;color:var(--bt)"></i></button>
+        <button onclick="excluirItemOS(${item.id})" style="background:var(--rb);border:none;border-radius:5px;padding:5px;cursor:pointer"><i class="ti ti-trash" style="font-size:13px;color:var(--rt)"></i></button>
+      </div>
+    </div>`).join('') : '<div style="font-size:12px;color:var(--tx2);padding:6px 0">Nenhum item neste dia</div>';
+}
+
+function abrirItemOSDia(){
+  const diaId = diarState.diaId;
+  if(!diaId){ alert('Salve o registro do dia primeiro para adicionar materiais.'); return; }
+  _itemDiaId = diaId;
+  _itemOsId = diarState.osId;
+  _editingItemOsId = null;
+  const os = DB.os.find(x=>x.id===diarState.osId);
+  $('item-os-osinfo').textContent = os ? `OS #${pad(os.id)} \u2014 ${os.cli} \u2014 ${formatBR($('mdia-data').value)}` : '';
+  $('mios-title').textContent = 'Adicionar material ao dia';
+  $('btn-salvar-item-os').textContent = 'Adicionar';
+  $('btn-excluir-item-os').style.display = 'none';
+  const sel = $('mios-est');
+  sel.innerHTML = '<option value="">\u2014 Selecionar do estoque \u2014</option>' +
+    DB.estoque.filter(e=>e.qtd>0).map(e=>`<option value="${e.id}">${escapeHtml(e.nome)} (${e.qtd} ${e.un} \u00b7 ${R(e.custo)}/un)</option>`).join('');
+  $('mios-est').value = '';
+  $('mios-est-info').style.display = 'none';
+  $('mios-desc').value = '';
+  $('mios-qtd').value = '1';
+  $('mios-custo').value = '';
+  $('mios-cobrar').value = '';
+  $('mios-addestoque-wrap').style.display = 'block';
+  $('mios-addest').checked = false;
+  $('m-item-os').classList.add('on');
+}
+
+async function salvarDiario(){
+  const data = $('mdia-data').value;
+  const horas = parseFloat($('mdia-horas').value)||0;
+  if(!data){ alert('Informe a data'); return; }
+  if(horas <= 0){ alert('Informe as horas trabalhadas'); return; }
+  const horaBase = parseFloat($('mdia-hora-base').value)||155;
+  const totalPct = diarState.fatores.filter(f=>f.ativo).reduce((a,f)=>a+f.pct,0);
+  const horaFinal = horaBase * (1 + totalPct/100);
+  const valMaoObra = horaFinal * horas;
+  const obj = {
+    id: diarState.diaId || nextOsDiario,
+    os: diarState.osId,
+    data, horas, horaBase,
+    fatores: diarState.fatores,
+    totalPct, horaFinal, valMaoObra,
+    obs: $('mdia-obs').value
+  };
+  const isEdit = !!diarState.diaId;
+  if(isEdit){
+    const idx = DB.osDiario.findIndex(d=>d.id===diarState.diaId);
+    if(idx>=0) DB.osDiario[idx] = obj;
+  } else {
+    DB.osDiario.push(obj); nextOsDiario++;
+    diarState.diaId = obj.id;
+    if($('btn-add-item-dia')) $('btn-add-item-dia').style.display = 'flex';
+    if($('mdia-itens-list')) renderDiarioItens(obj.id);
+  }
+  saveCache();
+  const ok = await apiSave(isEdit ? 'updateOsDiario' : 'addOsDiario', obj);
+  if(ok){
+    showSuccess(isEdit ? 'Dia atualizado!' : 'Dia registrado!');
+    if(editingOsId) renderDiarioOS(editingOsId);
+    await atualizarOSdoDiario(diarState.osId);
+  }
+}
+
+async function atualizarOSdoDiario(osId){
+  const dias = DB.osDiario.filter(d=>d.os===osId).sort((a,b)=>a.data.localeCompare(b.data));
+  if(!dias.length) return;
+  const os = DB.os.find(o=>o.id===osId);
+  if(!os) return;
+  const ini = dias[0].data;
+  const fim = dias[dias.length-1].data;
+  const totalMaoObra = dias.reduce((a,d)=>a+d.valMaoObra,0);
+  const cobrarMat = DB.osItens.filter(i=>i.os===osId).reduce((a,b)=>a+(Math.abs(+b.cobrar||0)*Math.abs(+b.qtd||1)),0);
+  os.dataIni = ini;
+  os.dataFim = fim;
+  if(!os.val) os.val = totalMaoObra + cobrarMat;
+  os.valMaoObra = totalMaoObra;
+  saveCache();
+  await apiSave('updateOS', os);
+  if($('mos-acerto-ini')) $('mos-acerto-ini').value = ini;
+  if($('mos-acerto-fim')) $('mos-acerto-fim').value = fim;
+}
+
+async function deleteDiario(){
+  if(!diarState.diaId) return;
+  if(!confirm('Excluir este registro do dia?')) return;
+  DB.osDiario = DB.osDiario.filter(d=>d.id!==diarState.diaId);
+  saveCache();
+  await apiSave('deleteOsDiario', {id: diarState.diaId});
+  closeModal('diario');
+  if(editingOsId) renderDiarioOS(editingOsId);
+}
+
+function renderDiarioOS(osId){
+  const list = $('mos-diario-list');
+  if(!list) return;
+  const dias = DB.osDiario.filter(d=>d.os===osId).sort((a,b)=>a.data.localeCompare(b.data));
+  if(!dias.length){
+    list.innerHTML = '<div class="empty" style="padding:1rem 0"><i class="ti ti-calendar-plus"></i>Nenhum dia registrado ainda</div>';
+  } else {
+    list.innerHTML = dias.map(d=>{
+      const itens = DB.osItens.filter(i=>i.diaId===d.id);
+      const cobDia = itens.reduce((a,b)=>a+(Math.abs(+b.cobrar||0)*Math.abs(+b.qtd||1)),0);
+      const reaj = d.totalPct > 0 ? `<span style="font-size:10px;background:var(--ab);color:var(--at);border-radius:99px;padding:1px 6px;margin-left:4px">+${d.totalPct}% reajuste</span>` : '';
+      return `<div class="card" style="margin-bottom:6px" onclick="openDiarioModal(${osId},${d.id})">
+        <div class="cr"><div>
+          <div class="ct">${formatBR(d.data)}</div>
+          <div class="cs">${d.horas}h \u00d7 R$${d.horaBase}/h${reaj}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:13px;font-weight:700;color:var(--brand)">${R(d.valMaoObra)}</div>
+          ${cobDia>0?`<div style="font-size:11px;color:var(--g)">+mat ${R(cobDia)}</div>`:''}
+        </div></div>
+        ${d.obs?`<div class="cs" style="margin-top:4px;font-style:italic">${escapeHtml(d.obs)}</div>`:''}
+      </div>`;
+    }).join('');
+  }
+  const totalHoras = dias.reduce((a,d)=>a+d.horas,0);
+  const totalMaoObra = dias.reduce((a,d)=>a+d.valMaoObra,0);
+  const cobrarMat = DB.osItens.filter(i=>i.os===osId).reduce((a,b)=>a+(Math.abs(+b.cobrar||0)*Math.abs(+b.qtd||1)),0);
+  const totalCalc = totalMaoObra + cobrarMat;
+  const os = DB.os.find(o=>o.id===osId);
+  if(dias.length){
+    if($('mos-acerto-ini')) $('mos-acerto-ini').value = dias[0].data;
+    if($('mos-acerto-fim')) $('mos-acerto-fim').value = dias[dias.length-1].data;
+  }
+  const ac = $('mos-acerto-content');
+  if(ac){
+    ac.innerHTML = `
+      <div style="display:flex;justify-content:space-between;padding:3px 0"><span>Total de horas</span><b>${totalHoras.toFixed(1)}h</b></div>
+      <div style="display:flex;justify-content:space-between;padding:3px 0"><span>M\u00e3o de obra</span><b>${R(totalMaoObra)}</b></div>
+      ${cobrarMat>0?`<div style="display:flex;justify-content:space-between;padding:3px 0"><span>Materiais</span><b>${R(cobrarMat)}</b></div>`:''}
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-top:.5px solid var(--bd);margin-top:4px"><span><b>Total calculado</b></span><b style="color:var(--brand)">${R(totalCalc)}</b></div>
+      <div class="fld" style="margin-top:8px"><label>Valor acordado (R$) \u2014 pode editar</label><input type="number" id="mos-acerto-val" value="${os?os.val:''}" placeholder="${totalCalc.toFixed(2)}" min="0" inputmode="decimal" style="width:100%;border:.5px solid var(--bd2);border-radius:var(--rad);padding:7px 10px;font-size:14px;font-weight:700;background:var(--bg);color:var(--tx);font-family:inherit" oninput="atualizarValAcerto(this.value)"></div>
+    `;
+  }
+}
+
+function atualizarValAcerto(val){
+  const os = DB.os.find(o=>o.id===editingOsId);
+  if(!os) return;
+  os.val = parseFloat(val)||0;
+  if($('mos-val')) $('mos-val').value = val;
+}
+
 </script>
 
+
+<!-- MODAL DIÁRIO DE OBRA -->
+<div class="mbg" id="m-diario"><div class="modal">
+  <div class="mh">
+    <span class="mt2" id="mdia-title">Registrar dia</span>
+    <button class="bx" onclick="closeModal('diario')"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="r2">
+    <div class="fld"><label>Data</label><input id="mdia-data" type="date"></div>
+    <div class="fld"><label>Horas trabalhadas</label><input id="mdia-horas" type="number" min="0.5" step="0.5" placeholder="4" inputmode="decimal" oninput="diarCalcRecalc()"></div>
+  </div>
+  <div class="fld">
+    <label>Hora técnica base</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+      <button type="button" id="mdia-tipo-manu" onclick="diarSetTipo('manutencao')" style="padding:7px;border-radius:var(--rad);border:1.5px solid var(--brand);background:var(--bb);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--brand)">Manutenção R$155/h</button>
+      <button type="button" id="mdia-tipo-proj" onclick="diarSetTipo('projeto')" style="padding:7px;border-radius:var(--rad);border:1.5px solid var(--bd2);background:var(--bg2);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--tx2)">Projeto R$200/h</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="font-size:12px;color:var(--tx2)">Personalizado: R$</span>
+      <input id="mdia-hora-base" type="number" min="1" value="155" inputmode="decimal" oninput="diarCalcRecalc(); diarClearTipoBtns()" style="flex:1;padding:6px 8px;border:.5px solid var(--bd2);border-radius:var(--rad);font-size:14px;font-weight:700;color:var(--tx);background:var(--bg);font-family:inherit">
+      <span style="font-size:12px;color:var(--tx2)">/h</span>
+    </div>
+  </div>
+  <div class="sdiv">Fatores de reajuste (opcional)</div>
+  <div id="mdia-fatores-list" style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px"></div>
+  <div id="mdia-calc-preview" style="background:var(--bb);border-radius:var(--rad);padding:9px 12px;font-size:12px;color:var(--bt);margin-bottom:12px;display:none;line-height:1.6"></div>
+  <div class="fld"><label>Observação (o que foi feito neste dia)</label><textarea id="mdia-obs" placeholder="Descreva o que foi feito..." style="min-height:72px"></textarea></div>
+  <div class="sh" style="margin-top:4px">
+    <span class="stl">Materiais deste dia</span>
+    <button class="btn-a" id="btn-add-item-dia" onclick="abrirItemOSDia()"><i class="ti ti-plus"></i>Item</button>
+  </div>
+  <div id="mdia-itens-list" style="margin-bottom:8px"></div>
+  <button class="btn-p" id="btn-save-diario" onclick="salvarDiario()">Salvar dia</button>
+  <button class="btn-danger" id="btn-del-diario" style="display:none;margin-top:8px" onclick="deleteDiario()">Excluir este registro</button>
+</div></div>
 
 <!-- MODAL CALCULADORA -->
 <div class="mbg" id="m-calc"><div class="modal" style="max-height:94dvh;overflow-y:auto;padding-bottom:calc(var(--sb) + 1.5rem)">
