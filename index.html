@@ -448,10 +448,8 @@ html,body{height:100%;background:var(--bg3);font-family:'Poppins',-apple-system,
   </div>
   <!-- Valores simples -->
   <div id="mos-vals-simples">
-    <div class="r2">
-      <div class="fld"><label>Mão de obra (R$)</label><input id="mos-maoobra" type="number" placeholder="0" min="0" inputmode="decimal" oninput="atualizarTotalOS()"></div>
-      <div class="fld"><label>Valor total acordado (R$)</label><input id="mos-val" type="number" placeholder="auto" min="0" inputmode="decimal"></div>
-    </div>
+    <div class="fld"><label>Mão de obra (R$)</label><input id="mos-maoobra" type="number" placeholder="0" min="0" inputmode="decimal" oninput="atualizarTotalOS()"></div>
+    <input id="mos-val" type="hidden" value="">
     <div id="mos-total-calc" style="display:none;font-size:11px;color:var(--tx2);margin:-4px 0 10px;padding:6px 10px;background:var(--bg2);border-radius:var(--rad)"></div>
   </div>
   <div class="r2">
@@ -1016,7 +1014,8 @@ function openOSModal(id){
     showOSResumo(id);
   } else {
     ['mos-cli','mos-desc','mos-maoobra','mos-val','mos-dataPrev','mos-dataIni','mos-dataFim'].forEach(i=>$(i).value='');
-    $('mos-data').value = getMes() + '-15';
+    $('mos-cli-sel').value = '';
+    $('mos-data').value = '';
     $('mos-tipo').value = 'Elétrico';
     $('mos-status').value = 'open';
     $('mos-resumo').style.display = 'none';
@@ -1145,8 +1144,7 @@ function atualizarTotalOS(){
       txt += ` = <b>${R(totalCalc)}</b>`;
       div.innerHTML = txt;
       div.style.display = 'block';
-      // Only auto-fill if total field is empty
-      if(!$('mos-val').value) $('mos-val').value = totalCalc.toFixed(2);
+      $('mos-val').value = totalCalc.toFixed(2);
     } else {
       div.style.display = 'none';
     }
@@ -1812,8 +1810,10 @@ function renderOS(){
     const recPendOS = allL.filter(l=>l.os===o.id && l.tipo==='receita_proj' && l.pago!==1).reduce((a,b)=>a+Math.abs(+b.val||0),0);
     const custOS = DB.osItens.filter(i=>i.os===o.id).reduce((a,b)=>a+(b.custo*b.qtd),0);
     const hrs = DB.horas.filter(h=>h.os===o.id).reduce((a,b)=>a+b.horas,0);
-    const pctRec = P(recOS, o.val);
-    const pctPend = Math.min(100-pctRec, P(recPendOS, o.val));
+    const cobrarMat2 = DB.osItens.filter(i=>i.os===o.id).reduce((a,b)=>a+(Math.abs(+b.cobrar||0)*Math.abs(+b.qtd||1)),0);
+    const totalOS = o.val || ((o.valMaoObra||0) + cobrarMat2);
+    const pctRec = Math.min(100, P(recOS, totalOS));
+    const pctPend = Math.min(100-pctRec, P(recPendOS, totalOS));
     const isVenc = o.status!=='done' && o.data && o.data<=TODAY;
     const lucro = recOS - custOS;
     return `<div class="card" onclick="openOSModal(${o.id})">
@@ -1853,7 +1853,7 @@ function renderOS(){
           <span class="${pctRec>=100?'pos':pctRec>0?'warn':'neg'}">${visivel?pctRec:'••'}%</span>
         </div>
         <div class="bw" style="position:relative;overflow:visible">
-          <div class="bf ${pctRec>=100?'':'warn'}" style="width:${visivel?pctRec:0}%;position:absolute;left:0;top:0;height:5px;border-radius:99px;z-index:2"></div>
+          <div class="bf ${pctRec>=100?'':'warn'}" style="width:${visivel?Math.min(100,pctRec):0}%;position:absolute;left:0;top:0;height:5px;border-radius:99px;z-index:2"></div>
           ${pctPend>0&&visivel?`<div style="width:${pctPend}%;position:absolute;left:${pctRec}%;top:0;height:5px;border-radius:0 99px 99px 0;background:var(--accent);opacity:.5;z-index:1"></div>`:''}
         </div>
         <div style="display:flex;gap:10px;margin-top:8px;font-size:11px;color:var(--tx2);flex-wrap:wrap">
@@ -3681,7 +3681,7 @@ let calcState = {
   fromOsId: null,
 };
 
-const HORA_MANUT = 155;
+const HORA_MANUT = 140;
 const HORA_PROJ  = 200;
 
 function abrirCalculadora(fromOsId) {
@@ -3903,22 +3903,17 @@ function diarSetTipo(tipo){
 }
 
 function diarUpdateTipoButtons(val){
-  const bM = $('mdia-tipo-manu'), bP = $('mdia-tipo-proj');
-  if(!bM||!bP) return;
+  const bM = $('mdia-tipo-manu');
+  if(!bM) return;
   const isManu = val===HORA_MANUT;
-  const isProj = val===HORA_PROJ;
   bM.style.border = isManu?'1.5px solid var(--brand)':'1.5px solid var(--bd2)';
   bM.style.background = isManu?'var(--bb)':'var(--bg2)';
   bM.style.color = isManu?'var(--brand)':'var(--tx2)';
-  bP.style.border = isProj?'1.5px solid var(--accent-d)':'1.5px solid var(--bd2)';
-  bP.style.background = isProj?'var(--ab)':'var(--bg2)';
-  bP.style.color = isProj?'var(--at)':'var(--tx2)';
 }
 
 function diarClearTipoBtns(){
-  const bM = $('mdia-tipo-manu'), bP = $('mdia-tipo-proj');
-  if(!bM||!bP) return;
-  [bM,bP].forEach(b=>{ b.style.border='1.5px solid var(--bd2)'; b.style.background='var(--bg2)'; b.style.color='var(--tx2)'; });
+  const bM = $('mdia-tipo-manu');
+  if(bM){ bM.style.border='1.5px solid var(--bd2)'; bM.style.background='var(--bg2)'; bM.style.color='var(--tx2)'; }
 }
 
 function renderDiarioFatores(){
@@ -4142,13 +4137,12 @@ function atualizarValAcerto(val){
   </div>
   <div class="fld">
     <label>Hora técnica base</label>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
-      <button type="button" id="mdia-tipo-manu" onclick="diarSetTipo('manutencao')" style="padding:7px;border-radius:var(--rad);border:1.5px solid var(--brand);background:var(--bb);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--brand)">Manutenção R$155/h</button>
-      <button type="button" id="mdia-tipo-proj" onclick="diarSetTipo('projeto')" style="padding:7px;border-radius:var(--rad);border:1.5px solid var(--bd2);background:var(--bg2);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--tx2)">Projeto R$200/h</button>
+    <div style="margin-bottom:8px">
+      <button type="button" id="mdia-tipo-manu" onclick="diarSetTipo('manutencao')" style="padding:7px 14px;border-radius:var(--rad);border:1.5px solid var(--brand);background:var(--bb);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--brand)">Preset manutenção R$140/h</button>
     </div>
     <div style="display:flex;align-items:center;gap:6px">
       <span style="font-size:12px;color:var(--tx2)">Personalizado: R$</span>
-      <input id="mdia-hora-base" type="number" min="1" value="155" inputmode="decimal" oninput="diarCalcRecalc(); diarClearTipoBtns()" style="flex:1;padding:6px 8px;border:.5px solid var(--bd2);border-radius:var(--rad);font-size:14px;font-weight:700;color:var(--tx);background:var(--bg);font-family:inherit">
+      <input id="mdia-hora-base" type="number" min="1" value="140" inputmode="decimal" oninput="diarCalcRecalc(); diarClearTipoBtns()" style="flex:1;padding:6px 8px;border:.5px solid var(--bd2);border-radius:var(--rad);font-size:14px;font-weight:700;color:var(--tx);background:var(--bg);font-family:inherit">
       <span style="font-size:12px;color:var(--tx2)">/h</span>
     </div>
   </div>
@@ -4179,7 +4173,7 @@ function atualizarValAcerto(val){
       <div id="calc-tipo-man" onclick="calcSetTipo('manutencao')" style="padding:12px;border-radius:10px;border:2px solid var(--brand);background:var(--bb);cursor:pointer;text-align:center">
         <div style="font-size:18px;margin-bottom:2px">🔧</div>
         <div style="font-size:13px;font-weight:700;color:var(--brand)">Manutenção</div>
-        <div style="font-size:11px;color:var(--tx2);margin-top:2px">R$ 155/h</div>
+        <div style="font-size:11px;color:var(--tx2);margin-top:2px">R$ 140/h</div>
       </div>
       <div id="calc-tipo-pro" onclick="calcSetTipo('projeto')" style="padding:12px;border-radius:10px;border:2px solid var(--bd2);background:var(--bg2);cursor:pointer;text-align:center">
         <div style="font-size:18px;margin-bottom:2px">🏗️</div>
@@ -4313,7 +4307,7 @@ function atualizarValAcerto(val){
         <div style="font-size:18px;margin-bottom:3px">🔧</div>
         <div style="font-size:13px;font-weight:700;color:var(--brand)">Manutenção</div>
         <div style="font-size:11px;color:var(--tx2);margin-top:2px">Reparo / diagnóstico</div>
-        <div style="font-size:12px;font-weight:700;color:var(--brand);margin-top:6px">R$ 155/h</div>
+        <div style="font-size:12px;font-weight:700;color:var(--brand);margin-top:6px">R$ 140/h</div>
       </div>
       <div id="calc-tipo-projeto" onclick="calcSetTipo('projeto')" style="padding:12px;border-radius:10px;border:2px solid var(--bd2);background:var(--bg2);cursor:pointer;text-align:center">
         <div style="font-size:18px;margin-bottom:3px">🏗️</div>
