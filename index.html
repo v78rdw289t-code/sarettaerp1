@@ -679,7 +679,7 @@ html,body{height:100%;background:var(--bg3);font-family:'Poppins',-apple-system,
 </div></div>
 
 <!-- MODAL ADICIONAR ITEM OS (estoque ou avulso) -->
-<div class="mbg" id="m-item-os"><div class="modal">
+<div class="mbg" id="m-item-os" style="z-index:60"><div class="modal">
   <div class="mh"><span class="mt2" id="mios-title">Adicionar Item à OS</span><button class="bx" onclick="closeModal('item-os')"><i class="ti ti-x"></i></button></div>
   <div style="background:var(--bg2);border-radius:var(--rad);padding:9px 12px;font-size:12px;color:var(--tx2);margin-bottom:10px" id="item-os-osinfo">—</div>
   <div class="fld">
@@ -860,10 +860,12 @@ async function fetchData(){
     if(DB.osItens.length) nextOsItem = Math.max(...DB.osItens.map(i=>i.id)) + 1;
     DB.osDiario = (data.osDiario||[]).map(r=>({
       id:+r.id, os:+r.os||0, data:normDate(r.data),
-      horas:+r.horas||0, horaBase:+r.horaBase||155,
+      horas:+r.horas||0, horaBase:+r.horaBase||140,
       fatores:Array.isArray(r.fatores)?r.fatores:(r.fatores?JSON.parse(r.fatores):[]),
       totalPct:+r.totalPct||0, horaFinal:+r.horaFinal||0,
-      valMaoObra:+r.valMaoObra||0, obs:String(r.obs||'')
+      valMaoObra:+r.valMaoObra||0, obs:String(r.obs||''),
+      iniManha:String(r.iniManha||''), fimManha:String(r.fimManha||''),
+      iniTarde:String(r.iniTarde||''), fimTarde:String(r.fimTarde||'')
     }));
     if(DB.osDiario.length) nextOsDiario = Math.max(...DB.osDiario.map(d=>d.id)) + 1;
     saveCache();
@@ -3878,18 +3880,27 @@ function openDiarioModal(osId, diaId){
     if(!dia) return;
     $('mdia-data').value = dia.data || '';
     $('mdia-horas').value = dia.horas || '';
-    $('mdia-hora-base').value = dia.horaBase || 155;
+    $('mdia-hora-base').value = dia.horaBase || 140;
     if(dia.fatores) diarState.fatores = JSON.parse(JSON.stringify(dia.fatores));
     $('mdia-obs').value = dia.obs || '';
+    $('mdia-t-ini-m').value = dia.iniManha || '';
+    $('mdia-t-fim-m').value = dia.fimManha || '';
+    $('mdia-t-ini-t').value = dia.iniTarde || '';
+    $('mdia-t-fim-t').value = dia.fimTarde || '';
     renderDiarioItens(diaId);
   } else {
     $('mdia-data').value = TODAY;
     $('mdia-horas').value = '';
-    $('mdia-hora-base').value = 155;
+    $('mdia-hora-base').value = 140;
     $('mdia-obs').value = '';
+    $('mdia-t-ini-m').value = '';
+    $('mdia-t-fim-m').value = '';
+    $('mdia-t-ini-t').value = '';
+    $('mdia-t-fim-t').value = '';
+    if($('mdia-horas-info')) $('mdia-horas-info').style.display = 'none';
     if($('mdia-itens-list')) $('mdia-itens-list').innerHTML = '<div style="font-size:12px;color:var(--tx2);padding:6px 0">Salve primeiro para adicionar materiais</div>';
   }
-  diarUpdateTipoButtons(parseFloat($('mdia-hora-base').value)||155);
+  diarUpdateTipoButtons(parseFloat($('mdia-hora-base').value)||140);
   renderDiarioFatores();
   diarCalcRecalc();
   $('m-diario').classList.add('on');
@@ -3914,6 +3925,64 @@ function diarUpdateTipoButtons(val){
 function diarClearTipoBtns(){
   const bM = $('mdia-tipo-manu');
   if(bM){ bM.style.border='1.5px solid var(--bd2)'; bM.style.background='var(--bg2)'; bM.style.color='var(--tx2)'; }
+}
+
+function timeDiff(t1, t2){
+  const [h1,m1] = t1.split(':').map(Number);
+  const [h2,m2] = t2.split(':').map(Number);
+  return Math.max(0, (h2*60+m2) - (h1*60+m1)) / 60;
+}
+
+function formatHoras(h){
+  const hh = Math.floor(h);
+  const mm = Math.round((h - hh) * 60);
+  return mm > 0 ? `${hh}h${mm.toString().padStart(2,'0')}` : `${hh}h`;
+}
+
+function calcHorasDoDia(){
+  const iniM = $('mdia-t-ini-m').value;
+  const fimM = $('mdia-t-fim-m').value;
+  const iniT = $('mdia-t-ini-t').value;
+  const fimT = $('mdia-t-fim-t').value;
+  const info = $('mdia-horas-info');
+  let total = 0; let partes = []; let aviso = false;
+
+  if(iniM || fimM){
+    if(iniM && fimM){
+      const h = timeDiff(iniM, fimM);
+      if(h > 0){ total += h; partes.push(`☀️ Manhã: ${formatHoras(h)}`); }
+      else { partes.push('☀️ Manhã: horário inválido'); aviso = true; }
+    } else {
+      partes.push('⚠️ Manhã: falta o ' + (iniM ? 'horário de término' : 'horário de início'));
+      aviso = true;
+    }
+  }
+  if(iniT || fimT){
+    if(iniT && fimT){
+      const h = timeDiff(iniT, fimT);
+      if(h > 0){ total += h; partes.push(`🌤️ Tarde: ${formatHoras(h)}`); }
+      else { partes.push('🌤️ Tarde: horário inválido'); aviso = true; }
+    } else {
+      partes.push('⚠️ Tarde: falta o ' + (iniT ? 'horário de término' : 'horário de início'));
+      aviso = true;
+    }
+  }
+
+  if(partes.length){
+    let html = partes.join(' &nbsp;·&nbsp; ');
+    if(total > 0 && !aviso) html += ` &nbsp;·&nbsp; <b>Total: ${formatHoras(total)}</b>`;
+    info.innerHTML = html;
+    info.style.display = 'block';
+    info.style.background = aviso ? 'var(--ab)' : 'var(--gb)';
+    info.style.color = aviso ? 'var(--at)' : 'var(--gt)';
+  } else {
+    info.style.display = 'none';
+  }
+
+  if(total > 0 && !aviso){
+    $('mdia-horas').value = +total.toFixed(2);
+    diarCalcRecalc();
+  }
 }
 
 function renderDiarioFatores(){
@@ -4020,7 +4089,11 @@ async function salvarDiario(){
     data, horas, horaBase,
     fatores: diarState.fatores,
     totalPct, horaFinal, valMaoObra,
-    obs: $('mdia-obs').value
+    obs: $('mdia-obs').value,
+    iniManha: $('mdia-t-ini-m').value || '',
+    fimManha: $('mdia-t-fim-m').value || '',
+    iniTarde: $('mdia-t-ini-t').value || '',
+    fimTarde: $('mdia-t-fim-t').value || ''
   };
   const isEdit = !!diarState.diaId;
   if(isEdit){
@@ -4033,12 +4106,11 @@ async function salvarDiario(){
     if($('mdia-itens-list')) renderDiarioItens(obj.id);
   }
   saveCache();
-  const ok = await apiSave(isEdit ? 'updateOsDiario' : 'addOsDiario', obj);
-  if(ok){
-    showSuccess(isEdit ? 'Dia atualizado!' : 'Dia registrado!');
-    if(editingOsId) renderDiarioOS(editingOsId);
-    await atualizarOSdoDiario(diarState.osId);
-  }
+  closeModal('diario');
+  showSuccess(isEdit ? 'Dia atualizado!' : 'Dia registrado!');
+  if(editingOsId) renderDiarioOS(editingOsId);
+  await atualizarOSdoDiario(diarState.osId);
+  apiSave(isEdit ? 'updateOsDiario' : 'addOsDiario', obj);
 }
 
 async function atualizarOSdoDiario(osId){
@@ -4131,9 +4203,25 @@ function atualizarValAcerto(val){
     <span class="mt2" id="mdia-title">Registrar dia</span>
     <button class="bx" onclick="closeModal('diario')"><i class="ti ti-x"></i></button>
   </div>
-  <div class="r2">
-    <div class="fld"><label>Data</label><input id="mdia-data" type="date"></div>
-    <div class="fld"><label>Horas trabalhadas</label><input id="mdia-horas" type="number" min="0.5" step="0.5" placeholder="4" inputmode="decimal" oninput="diarCalcRecalc()"></div>
+  <div class="fld"><label>Data</label><input id="mdia-data" type="date"></div>
+  <!-- Horários de trabalho -->
+  <div class="sdiv" style="margin-top:10px;margin-bottom:8px">Horários de trabalho</div>
+  <div style="margin-bottom:8px">
+    <div style="font-size:11px;font-weight:700;color:var(--tx2);margin-bottom:5px">☀️ Manhã</div>
+    <div class="r2">
+      <div class="fld"><label>Início</label><input id="mdia-t-ini-m" type="time" oninput="calcHorasDoDia()"></div>
+      <div class="fld"><label>Fim</label><input id="mdia-t-fim-m" type="time" oninput="calcHorasDoDia()"></div>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--tx2);margin-bottom:5px;margin-top:2px">🌤️ Tarde</div>
+    <div class="r2">
+      <div class="fld"><label>Início</label><input id="mdia-t-ini-t" type="time" oninput="calcHorasDoDia()"></div>
+      <div class="fld"><label>Fim</label><input id="mdia-t-fim-t" type="time" oninput="calcHorasDoDia()"></div>
+    </div>
+    <div id="mdia-horas-info" style="display:none;font-size:11px;padding:7px 10px;border-radius:var(--rad);margin-top:4px;line-height:1.7"></div>
+  </div>
+  <div class="fld">
+    <label>Horas totais <span style="font-size:10px;color:var(--tx3)">(calculado auto pelos horários, ou preencha manualmente)</span></label>
+    <input id="mdia-horas" type="number" min="0.5" step="0.5" placeholder="0" inputmode="decimal" oninput="diarCalcRecalc()">
   </div>
   <div class="fld">
     <label>Hora técnica base</label>
