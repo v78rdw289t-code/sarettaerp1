@@ -252,6 +252,7 @@ html,body{height:100%;background:var(--bg3);font-family:'Poppins',-apple-system,
         <button class="fb" id="ff-venc" onclick="setFinT('venc')">Pendentes</button>
         <button class="fb" id="ff-cat" onclick="setFinT('cat')">Categorias</button>
         <button class="fb" id="ff-analise" onclick="setFinT('analise')"><i class="ti ti-chart-bar" style="font-size:12px;vertical-align:middle"></i> Análise</button>
+        <button class="fb" id="ff-fiado" onclick="setFinT('fiado')"><i class="ti ti-wallet" style="font-size:12px;vertical-align:middle"></i> Fiado</button>
       </div>
       <div id="fin-caixa">
         <div class="sh" style="margin-bottom:10px">
@@ -326,6 +327,13 @@ html,body{height:100%;background:var(--bg3);font-family:'Poppins',-apple-system,
         <div id="fa-break"></div>
         <div class="sdiv" style="margin-top:4px">Prazo médio de recebimento</div>
         <div id="fa-prazo"></div>
+      </div>
+
+      <!-- FICHA DE FIADO -->
+      <div id="fin-fiado" style="display:none">
+        <div class="sh"><span class="stl">Ficha de Fiado</span></div>
+        <div style="font-size:12px;color:var(--tx2);margin-bottom:14px">Despesas pagas com dinheiro próprio. Marca o que a empresa deve a cada um.</div>
+        <div id="fiado-list"></div>
       </div>
     </div>
 
@@ -533,6 +541,14 @@ html,body{height:100%;background:var(--bg3);font-family:'Poppins',-apple-system,
     <div class="fld"><label>Data de Pagamento</label><input id="mf-pagto" type="date"></div>
   </div>
   <div class="fld"><label>Status</label><select id="mf-pago"><option value="1">Pago / Recebido</option><option value="0">Pendente</option></select></div>
+  <div class="fld" id="mf-pagador-wrap" style="display:none">
+    <label>Quem pagou?</label>
+    <select id="mf-pagador">
+      <option value="">Empresa pagou</option>
+      <option value="rodrigo">Rodrigo pagou (gera fiado)</option>
+      <option value="odinei">Odinei pagou (gera fiado)</option>
+    </select>
+  </div>
   <button class="btn-p" id="btn-save-fin" onclick="salvarLanc()">Salvar lançamento</button>
   <button class="btn-danger" id="btn-del-fin" style="display:none" onclick="deleteLanc()">Excluir lançamento</button>
 </div></div>
@@ -819,7 +835,8 @@ async function fetchData(){
         id:+r.id, tipo:String(r.tipo||'desp_op'), os:+r.os||0,
         desc:String(r.desc||''), val:Math.abs(+r.val||0), data:dataStr,
         pago:+r.pago, cat:String(r.cat||''), cli:+r.cli||0,
-        venc:normDate(r.venc), pagto:normDate(r.pagto)
+        venc:normDate(r.venc), pagto:normDate(r.pagto),
+        pagador:String(r.pagador||''), reembolsado:+r.reembolsado||0
       });
     });
     DB.clientes = (data.clientes||[]).map(r=>({
@@ -944,11 +961,13 @@ function setFinT(t){
   $('fin-venc').style.display = t==='venc' ? 'block' : 'none';
   $('fin-cat').style.display = t==='cat' ? 'block' : 'none';
   $('fin-analise').style.display = t==='analise' ? 'block' : 'none';
+  $('fin-fiado').style.display = t==='fiado' ? 'block' : 'none';
   if(t==='caixa') renderCaixa();
   else if(t==='lanc') renderLanc();
   else if(t==='venc') renderVenc();
   else if(t==='cat') renderCat();
   else if(t==='analise') renderAnaliseFinanceira();
+  else if(t==='fiado') renderFiado();
 }
 
 function setFichaTab(t){
@@ -1153,6 +1172,34 @@ function atualizarTotalOS(){
   }
 }
 
+// Cria lançamento de receita vinculado à OS (helper reutilizável)
+async function criarLancOS(os){
+  if(!os || os.val <= 0) return false;
+  const mes = (os.data||getMes()+'-15').slice(0,7);
+  const lancId = nextLanc;
+  const cliAutoObj = DB.clientes.find(c=>c.nome===os.cli);
+  const lancObj = {
+    id: lancId, tipo: 'receita_proj', os: os.id,
+    cli: cliAutoObj ? cliAutoObj.id : 0,
+    desc: 'Recebimento OS #' + pad(os.id) + ' — ' + os.cli,
+    val: os.val, data: os.data || getMes()+'-15',
+    venc: os.data || '', pagto: '', pago: 0, cat: 'Pagamento OS',
+    pagador: '', reembolsado: 0
+  };
+  if(!DB.lancamentos[mes]) DB.lancamentos[mes] = [];
+  DB.lancamentos[mes].push(lancObj);
+  nextLanc++;
+  saveCache();
+  const lancOk = await apiSave('addLanc', lancObj);
+  if(!lancOk){
+    DB.lancamentos[mes] = DB.lancamentos[mes].filter(l=>l.id!==lancId);
+    nextLanc--;
+    saveCache();
+    return false;
+  }
+  return true;
+}
+
 async function salvarOS(){
   const cli = $('mos-cli').value.trim();
   if(!cli){ alert('Informe o cliente'); return; }
@@ -1173,42 +1220,41 @@ async function salvarOS(){
   };
   let ok;
   if(editingOsId){
+    // Salva o valor antigo ANTES de atualizar o DB local
+    const osAnterior = DB.os.find(o=>o.id===editingOsId);
+    const valAnterior = osAnterior ? osAnterior.val : 0;
     const idx = DB.os.findIndex(o=>o.id===editingOsId);
     if(idx>=0) DB.os[idx] = obj;
     ok = await apiSave('updateOS', obj);
+    if(ok){
+      // Sincroniza lançamento de receita vinculado
+      const lancOS = allLancs().filter(l => l.os===editingOsId && l.tipo==='receita_proj');
+      if(lancOS.length === 0){
+        // Nenhum lançamento existe (nunca criado ou excluído) — cria agora
+        if(obj.val > 0) await criarLancOS(obj);
+      } else if(obj.val !== valAnterior){
+        // Valor mudou — atualiza pendentes e avisa sobre pagos
+        const pendentes = lancOS.filter(l => pago0(l));
+        const pagos    = lancOS.filter(l => pago1(l));
+        for(const l of pendentes){
+          l.val = obj.val;
+          const m = findLancMes(l.id);
+          if(m){ const li=DB.lancamentos[m].findIndex(x=>x.id===l.id); if(li>=0) DB.lancamentos[m][li].val=obj.val; }
+          saveCache();
+          await apiSave('updateLanc', l);
+        }
+        if(pagos.length > 0 && pendentes.length === 0){
+          showError('⚠️ O lançamento já foi recebido — ajuste o valor manualmente se necessário.');
+        } else if(pagos.length > 0){
+          showError('⚠️ Há lançamento já recebido com valor antigo — confira manualmente.');
+        }
+      }
+    }
   } else {
     DB.os.push(obj); nextOS++;
     ok = await apiSave('addOS', obj);
     // Auto-cria lançamento a receber (pendente) vinculado à OS
-    if(ok && obj.val > 0){
-      const mes = (obj.data||getMes()+'-15').slice(0,7);
-      const lancId = nextLanc;
-      const cliAutoObj = DB.clientes.find(c=>c.nome===obj.cli);
-      const lancObj = {
-        id: lancId,
-        tipo: 'receita_proj',
-        os: obj.id,
-        cli: cliAutoObj ? cliAutoObj.id : 0,
-        desc: 'Recebimento OS #' + pad(obj.id) + ' — ' + obj.cli,
-        val: obj.val,
-        data: obj.data || getMes()+'-15',
-        venc: obj.data || '',
-        pagto: '',
-        pago: 0,
-        cat: 'Pagamento OS'
-      };
-      if(!DB.lancamentos[mes]) DB.lancamentos[mes] = [];
-      DB.lancamentos[mes].push(lancObj);
-      nextLanc++;
-      saveCache();
-      const lancOk = await apiSave('addLanc', lancObj);
-      if(!lancOk){
-        // rollback local se falhar
-        DB.lancamentos[mes] = DB.lancamentos[mes].filter(l=>l.id!==lancId);
-        nextLanc--;
-        saveCache();
-      }
-    }
+    if(ok) await criarLancOS(obj);
   }
   if(ok){ closeModal('os'); renderAll(); }
   isSaving = false; btn.disabled = false;
@@ -1264,6 +1310,7 @@ function openLancModal(id){
     $('mf-pago').value = String(l.pago);
     $('mf-cat').value = l.cat || '';
     $('mf-cat-rec').value = l.cat || '';
+    $('mf-pagador').value = l.pagador || '';
   } else {
     $('mf-tipo').value = 'receita_proj';
     $('mf-os').value = 0;
@@ -1276,6 +1323,7 @@ function openLancModal(id){
     $('mf-pago').value = '1';
     $('mf-cat').value = '';
     $('mf-cat-rec').value = '';
+    $('mf-pagador').value = '';
   }
   toggleFinFields();
   $('m-fin').classList.add('on');
@@ -1295,6 +1343,7 @@ function toggleFinFields(){
   $('mf-os-wrap').style.display = (t==='receita_proj') ? 'block' : 'none';
   $('mf-cat-rec-wrap').style.display = (t==='receita_out') ? 'block' : 'none';
   $('mf-cat-wrap').style.display = (t==='desp_op') ? 'block' : 'none';
+  $('mf-pagador-wrap').style.display = (t==='desp_op') ? 'block' : 'none';
 }
 
 function findLancMes(id){
@@ -1315,8 +1364,13 @@ async function salvarLanc(){
   let cat = '';
   if(tipo==='desp_op') cat = $('mf-cat').value;
   else if(tipo==='receita_out') cat = $('mf-cat-rec').value;
-
   else if(tipo==='receita_proj') cat = 'Pagamento OS';
+  // Preserva reembolsado ao editar
+  let reembolsado = 0;
+  if(editingLancId){
+    const mes0 = findLancMes(editingLancId);
+    if(mes0){ const l0=(DB.lancamentos[mes0]||[]).find(x=>x.id===editingLancId); if(l0) reembolsado=l0.reembolsado||0; }
+  }
   const obj = {
     id: editingLancId || nextLanc,
     tipo, os: parseInt($('mf-os').value) || 0,
@@ -1326,7 +1380,9 @@ async function salvarLanc(){
     venc: $('mf-venc').value || '',
     pagto: $('mf-pagto').value || '',
     pago: parseInt($('mf-pago').value)||0,
-    cat
+    cat,
+    pagador: tipo==='desp_op' ? ($('mf-pagador').value||'') : '',
+    reembolsado
   };
   let ok;
   if(editingLancId){
@@ -1358,6 +1414,107 @@ async function deleteLanc(){
   closeModal('fin');
   renderCaixa(); // forçar atualização do saldo imediatamente
   renderAll();
+}
+
+// ──────────── FICHA DE FIADO ────────────
+function renderFiado(){
+  const el = $('fiado-list');
+  if(!el) return;
+  const PESSOAS = ['rodrigo','odinei'];
+  const LABELS  = {rodrigo:'Rodrigo', odinei:'Odinei'};
+  const CORES   = {rodrigo:'b-proj', odinei:'b-and'};
+  const allL = allLancs();
+  let html = '';
+
+  for(const pessoa of PESSOAS){
+    const itens = allL.filter(l => l.pagador===pessoa && l.tipo.startsWith('desp'));
+    if(!itens.length) continue;
+    const pendentes    = itens.filter(l => !l.reembolsado).sort((a,b)=>b.data.localeCompare(a.data));
+    const reembolsados = itens.filter(l => l.reembolsado).sort((a,b)=>b.data.localeCompare(a.data));
+    const total = pendentes.reduce((a,b)=>a+b.val,0);
+
+    html += `<div class="card" style="margin-bottom:16px">
+      <div class="cr" style="margin-bottom:10px">
+        <div>
+          <div class="ct" style="display:flex;align-items:center;gap:6px">
+            <i class="ti ti-user-circle" style="font-size:18px;color:var(--brand)"></i>${LABELS[pessoa]}
+          </div>
+          <div class="cs">${pendentes.length} item${pendentes.length!==1?'s':''} pendente${pendentes.length!==1?'s':''}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:20px;font-weight:800;color:${total>0?'var(--warn)':'var(--ok)'}">${R(total)}</div>
+          <div class="cs">${total>0?'empresa deve':'zerado ✓'}</div>
+        </div>
+      </div>`;
+
+    if(pendentes.length){
+      html += pendentes.map(l=>`
+        <div style="border-top:1px solid var(--bd2);padding:8px 0;display:flex;align-items:center;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(l.desc)}</div>
+            <div class="cs">${formatBR(l.data)}${l.cat?` · ${l.cat}`:''}</div>
+          </div>
+          <div style="font-size:13px;font-weight:700;color:var(--neg);flex-shrink:0;margin-right:4px">${R(l.val)}</div>
+          <button onclick="reembolsarItem(${l.id})" style="background:var(--brand);color:#fff;border:none;border-radius:var(--rad);padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap">✓ Reembolsado</button>
+        </div>`).join('');
+
+      if(pendentes.length > 1){
+        html += `<button onclick="reembolsarTodos('${pessoa}')" style="width:100%;margin-top:10px;background:var(--brand);color:#fff;border:none;border-radius:var(--rad);padding:10px;font-size:13px;font-weight:700;cursor:pointer">
+          Reembolsar tudo para ${LABELS[pessoa]} (${R(total)})
+        </button>`;
+      }
+    } else {
+      html += `<div style="border-top:1px solid var(--bd2);padding:10px 0;text-align:center;color:var(--ok);font-size:13px;font-weight:600">✓ Tudo reembolsado</div>`;
+    }
+
+    if(reembolsados.length){
+      html += `<details style="margin-top:8px"><summary style="font-size:11px;color:var(--tx2);cursor:pointer;padding:4px 0">${reembolsados.length} já reembolsado${reembolsados.length!==1?'s':''} — ver histórico</summary>
+        ${reembolsados.map(l=>`
+          <div style="border-top:1px solid var(--bd2);padding:6px 0;display:flex;align-items:center;gap:8px;opacity:0.55">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(l.desc)}</div>
+              <div class="cs">${formatBR(l.data)}</div>
+            </div>
+            <div style="font-size:12px;color:var(--tx2)">${R(l.val)}</div>
+            <span style="font-size:10px;color:var(--ok);font-weight:700;flex-shrink:0">✓ Pago</span>
+          </div>`).join('')}
+      </details>`;
+    }
+
+    html += '</div>';
+  }
+
+  if(!html){
+    html = `<div class="empty"><i class="ti ti-wallet-off"></i><br>Nenhuma despesa pessoal registrada.<br><span style="font-size:11px">Ao criar um lançamento de despesa, selecione "Rodrigo pagou" ou "Odinei pagou" no campo Quem pagou.</span></div>`;
+  }
+  el.innerHTML = html;
+}
+
+async function reembolsarItem(lancId){
+  const mes = findLancMes(lancId);
+  if(!mes) return;
+  const l = (DB.lancamentos[mes]||[]).find(x=>x.id===lancId);
+  if(!l) return;
+  l.reembolsado = 1;
+  saveCache();
+  await apiSave('updateLanc', l);
+  renderFiado();
+  showSuccess('Item marcado como reembolsado!');
+}
+
+async function reembolsarTodos(pessoa){
+  const LABELS = {rodrigo:'Rodrigo', odinei:'Odinei'};
+  if(!confirm(`Marcar todos os itens de ${LABELS[pessoa]||pessoa} como reembolsados?`)) return;
+  const pendentes = allLancs().filter(l => l.pagador===pessoa && l.tipo.startsWith('desp') && !l.reembolsado);
+  for(const l of pendentes){
+    l.reembolsado = 1;
+    const m = findLancMes(l.id);
+    if(m){ const li=DB.lancamentos[m].findIndex(x=>x.id===l.id); if(li>=0) DB.lancamentos[m][li].reembolsado=1; }
+    await apiSave('updateLanc', l);
+  }
+  saveCache();
+  renderFiado();
+  showSuccess(`Tudo reembolsado para ${LABELS[pessoa]||pessoa}!`);
 }
 
 // ──────────── CLIENTES ────────────
@@ -1963,6 +2120,7 @@ function renderLanc(){
             <span class="bdg ${bCls}">${bTxt}</span>
             ${l.cat?`<span class="pill" style="margin-left:4px">${l.cat}</span>`:''}
             ${l.pago!==1?'<span class="bdg b-pend" style="margin-left:4px">Pendente</span>':''}
+            ${l.pagador==='rodrigo'?'<span class="bdg b-proj" style="margin-left:4px"><i class="ti ti-wallet" style="font-size:9px"></i> Rodrigo pagou</span>':l.pagador==='odinei'?'<span class="bdg b-and" style="margin-left:4px"><i class="ti ti-wallet" style="font-size:9px"></i> Odinei pagou</span>':''}
           </div>
           ${vinculo}
           <div class="cs" style="margin-top:4px">${formatBR(l.data)}${l.venc?` · Venc: ${formatBR(l.venc)}`:''}${l.pagto?` · Pago: ${formatBR(l.pagto)}`:''}</div>
@@ -4110,7 +4268,7 @@ async function salvarDiario(){
   showSuccess(isEdit ? 'Dia atualizado!' : 'Dia registrado!');
   if(editingOsId) renderDiarioOS(editingOsId);
   await atualizarOSdoDiario(diarState.osId);
-  apiSave(isEdit ? 'updateOsDiario' : 'addOsDiario', obj);
+  await apiSave(isEdit ? 'updateOsDiario' : 'addOsDiario', obj);
 }
 
 async function atualizarOSdoDiario(osId){
