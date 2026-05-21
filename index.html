@@ -26,11 +26,6 @@
   --rad:8px;--radl:12px;
   --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px)
 }
-@media(prefers-color-scheme:dark){:root{
-  --bg:#1c1c1e;--bg2:#2c2c2e;--bg3:#3a3a3c;
-  --tx:#f2f2f7;--tx2:#aeaeb2;--tx3:#636366;
-  --bd:rgba(255,255,255,.12);--bd2:rgba(255,255,255,.22)
-}}
 html,body{height:100%;background:var(--bg3);font-family:'Poppins',-apple-system,'Helvetica Neue',sans-serif;color:var(--tx)}
 #app{max-width:430px;margin:0 auto;background:var(--bg3);min-height:100dvh;display:flex;flex-direction:column}
 .topbar{background:var(--brand);padding:calc(var(--st) + .5rem) 1rem .5rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
@@ -798,7 +793,7 @@ const OSBDG = {open:'b-ab', progress:'b-and', done:'b-ok'};
 const osNome = o => (o.nome && o.nome.trim()) ? o.nome.trim() : o.cli;
 
 let visivel = true;
-let DB = { os:[], lancamentos:{}, clientes:[], horas:[], compras:[], estoque:[], categorias:[], osItens:[], osDiario:[] };
+let DB = { os:[], lancamentos:{}, clientes:[], horas:[], compras:[], estoque:[], categorias:[], osItens:[], osDiario:[], config:{} };
 let nextOS=1, nextLanc=1, nextCli=1, nextHora=1, nextCompra=1, nextEstoque=1, nextCat=1, nextOsItem=1, nextOsDiario=1;
 let osFiltro='aberta', lancFiltro='todos', finTab='caixa', fichaTab='info', osTab='os', catTab='desp';
 let osPage = 6;
@@ -928,6 +923,11 @@ async function fetchData(){
       iniTarde:String(r.iniTarde||''), fimTarde:String(r.fimTarde||'')
     }));
     if(DB.osDiario.length) nextOsDiario = Math.max(...DB.osDiario.map(d=>d.id)) + 1;
+    // Config global (sincronizada)
+    if(data.config && typeof data.config === 'object') {
+      DB.config = data.config;
+      saveConfigData(data.config); // atualiza cache local
+    }
     saveCache();
     renderAll();
   }catch(e){
@@ -2850,6 +2850,8 @@ function renderBadges(){
 const CFG_KEY = 'saretta_config';
 
 function getConfig(){
+  // Prefere DB.config (servidor), usa localStorage como fallback
+  if(DB.config && (DB.config.custoMes || DB.config.horasMes || DB.config.nomeEmp)) return DB.config;
   try{ return JSON.parse(localStorage.getItem(CFG_KEY)||'{}'); }catch(e){return {};}
 }
 function saveConfigData(d){ try{ localStorage.setItem(CFG_KEY, JSON.stringify(d)); }catch(e){} }
@@ -2882,21 +2884,21 @@ function updateCfgPreview(){
   }
 }
 
-function salvarConfig(){
+async function salvarConfig(){
   const cfg = {
     custoMes: parseFloat($('cfg-custo-mes').value)||0,
     horasMes: parseFloat($('cfg-horas-mes').value)||0,
     nomeEmp: $('cfg-nome-emp').value.trim()
   };
+  DB.config = cfg;
   saveConfigData(cfg);
   closeModal('config');
-  // Atualizar taxa H/H automaticamente se não houver manual
   if(cfg.custoMes>0 && cfg.horasMes>0){
     const taxaCalc = cfg.custoMes/cfg.horasMes;
     if(!getTaxaHH()) setTaxaHH(taxaCalc);
   }
   renderAll();
-  showSuccess('Configurações salvas!');
+  await apiSave('saveConfig', cfg);
 }
 
 // ──────────── TAXA HOMEM/HORA & HORAS PREVISTAS ────────────
