@@ -857,11 +857,12 @@ async function fetchData(){
   try{
     showSync();
     const data = await apiGet();
+    if(data.error) throw new Error('Apps Script: ' + data.error);
     DB.os = (data.os||[]).map(r=>({
       id:+r.id, cli:String(r.cli||''), tipo:String(r.tipo||'Outro'), desc:String(r.desc||''),
       val:+r.val||0, data:normDate(r.data), status:String(r.status||'open'),
       dataPrev:normDate(r.dataPrev), dataIni:normDate(r.dataIni), dataFim:normDate(r.dataFim),
-      valMaoObra:+r.valMaoObra||0, modoDiario:r.modoDiario==='true'||r.modoDiario===true||false
+      valMaoObra:+r.valMaoObra||0, modoDiario:r.modoDiario==='true'||r.modoDiario===true||r.modoDiario==='TRUE'||r.modoDiario===1||r.modoDiario==='1'||false
     }));
     DB.lancamentos = {};
     (data.lancamentos||[]).forEach(r=>{
